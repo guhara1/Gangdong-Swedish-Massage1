@@ -540,12 +540,22 @@ th { background: var(--panel-2); color: var(--gold-soft); font-family: var(--ser
 }
 .footer-copy { font-size: 0.78rem; opacity: 0.75; margin: 0; }
 .footer-note { font-size: 0.76rem; opacity: 0.55; margin: 0; }
-.footer-made {
-  font-size: 0.76rem; color: var(--text-dim);
-  border: 1px solid var(--line); border-radius: 16px;
-  padding: 4px 14px; white-space: nowrap; transition: 0.15s;
+.footer-cta-group { display: flex; flex-wrap: wrap; gap: 10px; }
+.footer-cta-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.8rem; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, #ff8a1e, #f2620c);
+  border: 0; border-radius: 22px;
+  padding: 8px 18px; white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(242, 98, 12, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
 }
-.footer-made:hover { color: var(--gold-soft); border-color: var(--line-gold); }
+.footer-cta-btn:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(242, 98, 12, 0.45);
+}
+.footer-cta-btn .tg-ico { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; }
 
 @media (max-width: 920px) {
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 28px; padding-top: 36px; }
