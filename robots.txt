@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.barogo-gangdong.example.com/sitemap.xml
