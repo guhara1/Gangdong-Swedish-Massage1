@@ -4,6 +4,8 @@
 from .site import BASE_URL, BRAND, PHONE, PHONE_DISPLAY
 from .pricing import PRICING
 
+_NAVER = '<meta name="naver-site-verification" content="4fcb8ac2993e2251985d1de8d5b92e7866d27d89" />\n'
+
 _JSONLD = f"""<script type="application/ld+json">
 {{
   "@context": "https://schema.org",
@@ -216,7 +218,7 @@ PAGE = {
     "desc": "강동 출장마사지·홈타이 예약 전 행정동, 역세권, 이용 기준을 정리했습니다.",
     "h1": "강동 출장마사지·강동구 홈타이 지역별 예약 안내",
     "body": _BODY,
-    "extra_head": _JSONLD,
+    "extra_head": _NAVER + _JSONLD,
     "breadcrumb": [],
     "hero": _HERO,
 }

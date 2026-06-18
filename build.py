@@ -17,7 +17,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from content import PAGES
-from content.site import (BASE_URL, BRAND, NAV, PHONE, PHONE_DISPLAY)
+from content.site import (BASE_URL, BRAND, NAV, PHONE, PHONE_DISPLAY,
+                          INDEXNOW_KEY)
+import datetime
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MIN_INDEX_CHARS = 2000
@@ -163,6 +165,7 @@ def render_page(page: dict) -> str:
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/style.css">
+<link rel="alternate" type="application/rss+xml" title="{BRAND} RSS" href="{BASE_URL.rstrip('/')}/rss.xml">
 {extra_head}</head>
 <body>
 <header class="site-header">
@@ -252,8 +255,9 @@ def render_page(page: dict) -> str:
 
 def build() -> None:
     report = []
-    sitemap_urls = []
+    indexed = []  # (url, title, desc) — 색인 허용 페이지
 
+    base = BASE_URL.rstrip("/")
     desc_warnings = []
     for page in PAGES:
         path = page["path"]  # "" 또는 "gangdong/cheonho-dong-chuljangmassage/" 형태
@@ -271,29 +275,81 @@ def build() -> None:
         chars = text_length(page["body"])
         noindex = page.get("noindex", False) or chars < MIN_INDEX_CHARS
         if not noindex:
-            sitemap_urls.append(BASE_URL.rstrip("/") + "/" + path)
+            indexed.append((base + "/" + path, page["title"], page["desc"]))
         report.append((path or "/", chars, "noindex" if noindex else "index"))
 
-    # sitemap.xml
-    urls = "\n".join(
-        f"  <url><loc>{u}</loc></url>" for u in sitemap_urls
+    today = datetime.date.today().isoformat()
+    now_rfc822 = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%a, %d %b %Y %H:%M:%S +0000"
     )
+
+    # sitemap.xml — lastmod·changefreq·priority 포함(색인 속도에 도움)
+    rows = []
+    for url, _, _ in indexed:
+        priority = "1.0" if url == base + "/" else "0.8"
+        rows.append(
+            f"  <url><loc>{url}</loc><lastmod>{today}</lastmod>"
+            f"<changefreq>weekly</changefreq><priority>{priority}</priority></url>"
+        )
     with open(os.path.join(ROOT, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-            f"{urls}\n</urlset>\n"
+            + "\n".join(rows)
+            + "\n</urlset>\n"
         )
 
-    # robots.txt
+    # rss.xml — 색인 봇이 신규/변경 페이지를 빠르게 수집하도록 RSS 2.0 피드 제공
+    items = []
+    for url, title, desc in indexed:
+        items.append(
+            "    <item>\n"
+            f"      <title>{html.escape(title)}</title>\n"
+            f"      <link>{url}</link>\n"
+            f"      <guid isPermaLink=\"true\">{url}</guid>\n"
+            f"      <description>{html.escape(desc)}</description>\n"
+            f"      <pubDate>{now_rfc822}</pubDate>\n"
+            "    </item>"
+        )
+    with open(os.path.join(ROOT, "rss.xml"), "w", encoding="utf-8") as f:
+        f.write(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n'
+            "  <channel>\n"
+            f"    <title>{html.escape(BRAND)} — 강동 출장마사지·홈타이</title>\n"
+            f"    <link>{base}/</link>\n"
+            f"    <atom:link href=\"{base}/rss.xml\" rel=\"self\" type=\"application/rss+xml\"/>\n"
+            "    <description>강동구 전지역 방문 출장마사지·홈타이 안내</description>\n"
+            "    <language>ko-KR</language>\n"
+            f"    <lastBuildDate>{now_rfc822}</lastBuildDate>\n"
+            + "\n".join(items)
+            + "\n  </channel>\n</rss>\n"
+        )
+
+    # robots.txt — 전 봇 허용 + 주요 봇 명시 + sitemap 위치
     with open(os.path.join(ROOT, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(
-            "User-agent: *\nAllow: /\n\n"
-            f"Sitemap: {BASE_URL.rstrip('/')}/sitemap.xml\n"
+            "User-agent: *\n"
+            "Allow: /\n\n"
+            "# 구글\nUser-agent: Googlebot\nAllow: /\n\n"
+            "# 네이버\nUser-agent: Yeti\nAllow: /\n\n"
+            "# 빙 (IndexNow)\nUser-agent: bingbot\nAllow: /\n\n"
+            "# 다음\nUser-agent: Daum\nAllow: /\n\n"
+            f"Sitemap: {base}/sitemap.xml\n"
         )
+
+    # IndexNow 키 파일 — 루트에 "{key}.txt" (내용은 키 그 자체)
+    with open(os.path.join(ROOT, f"{INDEXNOW_KEY}.txt"), "w", encoding="utf-8") as f:
+        f.write(INDEXNOW_KEY + "\n")
+
+    # 색인 통보용 URL 목록 (tools/indexnow.py 가 읽음)
+    with open(os.path.join(ROOT, "indexnow-urls.txt"), "w", encoding="utf-8") as f:
+        f.write("\n".join(url for url, _, _ in indexed) + "\n")
 
     # .nojekyll (GitHub Pages)
     open(os.path.join(ROOT, ".nojekyll"), "w").close()
+
+    sitemap_urls = indexed
 
     width = max(len(p) for p, _, _ in report)
     print(f"{'PATH'.ljust(width)}  CHARS  ROBOTS")

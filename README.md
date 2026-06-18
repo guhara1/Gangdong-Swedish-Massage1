@@ -41,6 +41,39 @@ python3 build.py
 - 방문형 사이트라 오프라인 주소 기반 LocalBusiness Schema는 사용하지 않음
 - 모든 페이지 본문은 페이지별 고유 작성 (지역명만 바꾼 복붙 없음)
 
+## 검색엔진 색인 / 빠른 인덱싱
+
+빌드(`python3 build.py`) 시 색인 관련 파일이 자동 생성됩니다.
+
+- `sitemap.xml` — `lastmod`·`changefreq`·`priority` 포함 (색인 대상 38개)
+- `rss.xml` — RSS 2.0 피드 (전 페이지 `<head>`에 자동 발견 링크 포함)
+- `robots.txt` — 전 봇 허용 + Googlebot·Yeti(네이버)·bingbot·Daum 명시 + sitemap 위치
+- `{IndexNow키}.txt` — IndexNow 검증용 키 파일 (루트)
+- `indexnow-urls.txt` — 통보용 URL 목록
+- 메인페이지 `<head>`에 네이버 사이트 인증 메타태그
+
+### 즉시 색인 통보 (IndexNow → 빙·네이버·얀덱스)
+
+```bash
+python3 build.py            # URL 목록 갱신
+python3 tools/indexnow.py   # 모든 URL을 빙·네이버 등에 즉시 통보
+# 글/페이지 추가 시 해당 URL만:
+python3 tools/indexnow.py https://gangdong-swedish-massage1.pages.dev/새URL/
+```
+
+> IndexNow 키 파일(`{key}.txt`)이 실제 도메인에 배포된 뒤에 통보해야 검증을 통과합니다.
+
+### 구글 (IndexNow 미참여)
+
+- 기본: `sitemap.xml`을 **Google Search Console**에 제출 (가장 확실)
+- 선택: `tools/google_indexing.py` — Indexing API로 즉시 통보 (서비스 계정 JSON 필요, 공식상 채용/방송 페이지용이라 일반 페이지 효과는 보장되지 않음)
+- 참고: 구글·빙의 `sitemap ping` 엔드포인트는 2023년 폐지되어 더 이상 동작하지 않습니다.
+
+### 네이버
+
+- **네이버 서치어드바이저**에 사이트 등록 → 메인페이지의 인증 메타태그로 소유 확인
+- `sitemap.xml`·`rss.xml` 제출, IndexNow로 즉시 통보 가능 (네이버 IndexNow 참여)
+
 ## 총 페이지 구성
 
 - 메인 1
