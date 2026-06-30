@@ -1,5 +1,5 @@
 # 사이트 공통 설정
-BASE_URL = "https://gangdong-swedish-massage1.pages.dev"
+BASE_URL = "https://gangdong-swedish-massage1.netlify.app"
 
 BRAND = "바로GO"
 PHONE = "0508-202-4719"

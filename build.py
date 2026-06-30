@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from content import PAGES
 from content.site import (BASE_URL, BRAND, NAV, PHONE, PHONE_DISPLAY,
                           INDEXNOW_KEY)
+from content.schema import build_jsonld, review_block_html
 import datetime
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -106,6 +107,47 @@ def render_toc(items) -> str:
     )
 
 
+def render_related(current_path: str) -> str:
+    """지역(행정동·역·생활권) 페이지 하단에 들어가는 전지역 내부링크 블록.
+
+    NAV 데이터를 그대로 활용해 동·역·생활권 전체를 롱테일 앵커로 연결한다.
+    페이지마다 동일한 사이트 내비게이션 성격의 컨텍스트 링크 모음이다."""
+    cur = "/" + current_path
+    cols = []
+    for label, href, children in NAV:
+        if not href.startswith("/gangdong"):
+            continue
+        links = []
+        for c_label, c_href in children:
+            if c_href == href:  # "…전체" 항목은 그룹 제목 링크로 대체
+                continue
+            active = ' class="is-current" aria-current="page"' if c_href == cur else ""
+            links.append(f'<li><a href="{c_href}"{active}>{c_label} 출장마사지</a></li>')
+        cols.append(
+            '<div class="related-col">'
+            f'<p class="related-col-title"><a href="{href}">{label}</a></p>'
+            f'<ul>{"".join(links)}</ul></div>'
+        )
+    cols.append(
+        '<div class="related-col">'
+        '<p class="related-col-title"><a href="/reservation/">이용 안내</a></p>'
+        '<ul>'
+        '<li><a href="/reservation/">예약안내 · 예약 방법</a></li>'
+        '<li><a href="/checklist/">이용 전 확인사항</a></li>'
+        '<li><a href="/hometai-guide/">홈타이 이용 가이드</a></li>'
+        '<li><a href="/about/">운영자 소개</a></li>'
+        '<li><a href="/support/">고객센터 · 자주 묻는 질문</a></li>'
+        '</ul></div>'
+    )
+    return (
+        '<section id="related-areas" class="related-areas" aria-label="강동구 전지역 안내 바로가기">'
+        '<h2>강동구 전지역 출장마사지·홈타이 바로가기</h2>'
+        '<p class="related-lead">찾으시는 동네·지하철역·생활권을 선택하면 해당 지역의 방문 조건과 예약 안내를 자세히 확인하실 수 있습니다.</p>'
+        f'<div class="related-grid">{"".join(cols)}</div>'
+        '</section>'
+    )
+
+
 def render_page(page: dict) -> str:
     path = page["path"]
     title = page["title"]
@@ -124,6 +166,17 @@ def render_page(page: dict) -> str:
         else '<meta name="robots" content="index,follow">'
     )
     canonical = BASE_URL.rstrip("/") + "/" + path
+
+    # 이용자 후기 블록(평점·후기) — 메인·지역 상세 페이지에 본문 끝에 붙인다.
+    # JSON-LD 의 Review/AggregateRating 과 동일한 데이터로 생성되어 항상 일치한다.
+    body = body + review_block_html(page)
+
+    # 지역(행정동·역·생활권) 페이지에는 전지역 내부링크 블록을 본문 끝에 붙인다.
+    if path.startswith("gangdong/"):
+        body = body + render_related(path)
+
+    # JSON-LD 구조화 데이터(전 페이지 공통 + 페이지 종류별)를 head 에 주입한다.
+    extra_head = extra_head + build_jsonld(page, canonical)
 
     # 히어로가 있는 페이지(메인)는 H1을 히어로 안에서 출력한다.
     if hero:
@@ -284,12 +337,26 @@ def build() -> None:
     )
 
     # sitemap.xml — lastmod·changefreq·priority 포함(색인 속도에 도움)
+    # 페이지 성격별로 우선순위·갱신주기를 차등화해 크롤러가 중요한 페이지를
+    # 더 자주, 먼저 수집하도록 유도한다.
+    hub_paths = {"gangdong/", "gangdong/stations/", "gangdong/areas/"}
+
+    def sitemap_meta(url):
+        rel = url[len(base) + 1 :]  # base 뒤 경로("" = 메인)
+        if rel == "":
+            return "1.0", "daily"
+        if rel in hub_paths:
+            return "0.9", "weekly"
+        if rel.startswith("gangdong/"):
+            return "0.8", "weekly"
+        return "0.6", "monthly"
+
     rows = []
     for url, _, _ in indexed:
-        priority = "1.0" if url == base + "/" else "0.8"
+        priority, changefreq = sitemap_meta(url)
         rows.append(
             f"  <url><loc>{url}</loc><lastmod>{today}</lastmod>"
-            f"<changefreq>weekly</changefreq><priority>{priority}</priority></url>"
+            f"<changefreq>{changefreq}</changefreq><priority>{priority}</priority></url>"
         )
     with open(os.path.join(ROOT, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(

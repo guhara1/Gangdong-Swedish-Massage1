@@ -17,4 +17,4 @@ Allow: /
 User-agent: Daum
 Allow: /
 
-Sitemap: https://gangdong-swedish-massage1.pages.dev/sitemap.xml
+Sitemap: https://gangdong-swedish-massage1.netlify.app/sitemap.xml
